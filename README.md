@@ -41,14 +41,17 @@ Descarga el instalador de la [última versión](https://github.com/ibrarmz/ibrae
 | Windows 10/11 | `IBRAE_<versión>_x64-setup.exe` | Recomendado. Instala por usuario, sin permisos de administrador. |
 | Windows 10/11 | `IBRAE_<versión>_x64-portable.zip` | Si tu red bloquea descargas de `.exe`/`.msi`. Descomprime y abre `ibrae.exe`; no instala ni pide administrador. Instrucciones en `LEEME.txt`. |
 | Windows 10/11 | `IBRAE_<versión>_x64.msi` | Para todo el equipo, en Program Files. Pide administrador; útil para desplegar con Intune / GPO (`msiexec /i … /qn`). |
+| Linux (cualquier distro) | `ibrae_<versión>_amd64.AppImage` | Recomendado en Linux, y el único que se actualiza solo. Sin instalar: `chmod +x` y ábrelo, o intégralo al menú con Gear Lever (viene en Bazzite). |
 | Debian / Ubuntu | `ibrae_<versión>_amd64.deb` | `sudo apt install ./ibrae_<versión>_amd64.deb` |
 | Fedora | `ibrae-<versión>-1.x86_64.rpm` | `sudo dnf install ./ibrae-<versión>-1.x86_64.rpm` |
 
-**Actualizaciones:** la isla revisa GitHub al arrancar y cada 12 horas. Con el instalador `.exe` o el `.msi` se actualiza sola desde **Ajustes → Actualizaciones** (verifica la firma de la descarga antes de instalar); con el `.zip` portable y en Linux te avisa y abre la página de descarga. Se puede apagar en Ajustes.
+**Actualizaciones:** la isla revisa GitHub al arrancar y cada 12 horas. Con el instalador `.exe`, el `.msi` o el `.AppImage` se actualiza sola desde **Ajustes → Actualizaciones** (verifica la firma de la descarga antes de instalar; el AppImage se reemplaza y la isla se reinicia); con el `.zip` portable, el `.deb` o el `.rpm` te avisa y abre la página de descarga. Se puede apagar en Ajustes.
 
 Usa solo una de las opciones de Windows. Los dos, al desinstalar, quitan los hooks de Claude y el inicio automático (`ibrae uninstall-cleanup`). No están firmados: si SmartScreen avisa, "Más información" → "Ejecutar de todas formas".
 
 **¿Venías de "Dynamic Island"?** Es la misma app con nombre nuevo. En Windows, al abrir IBRÆ por primera vez (o al actualizar desde la isla) se quita la versión anterior y se conservan tus notas, ajustes, calendarios, la conexión con Claude Code y el inicio automático. En Linux quita el paquete viejo con `sudo apt remove dynamic-island` / `sudo dnf remove dynamic-island`.
+
+Con el AppImage, si conectaste Claude Code, la isla copia `island-hook` a `~/.local/share/dev.dynamicisland.island/` (el AppImage cambia de ruta cada vez que se abre). Usa un solo formato en Linux: si cambias del `.rpm`/`.deb` al AppImage, desinstala el paquete primero (en Bazzite: `rpm-ostree uninstall ibrae`).
 
 En Linux, antes de desinstalar, corre `ibrae hooks uninstall` si conectaste Claude Code y apaga "Iniciar con el sistema" en Ajustes: el paquete se desinstala como root y no puede tocar la configuración de tu usuario.
 
@@ -157,7 +160,7 @@ Los hooks de Claude Code usan un canal local (named pipe / socket Unix), nunca l
 | Ajustes, posición, autoarranque | Probado en la app instalada | Compila |
 | Calendario iCal: agenda, avisos, Unirse, conectar copiando el link | Probado con Google (calendario real) | Compila |
 | Actualización automática | Probada de 0.1.13 a 0.1.14 con el instalador `.exe` | Avisa y abre la descarga |
-| Instalador / desinstalador | NSIS por usuario, probado instalar → usar → desinstalar | `.deb` / `.rpm` generados en Docker, sin instalar en un escritorio real |
+| Instalador / desinstalador | NSIS por usuario, probado instalar → usar → desinstalar | `.deb` / `.rpm` generados en Docker, sin instalar en un escritorio real; AppImage se actualiza solo (probado en Docker de 0.4.90 a 0.4.91) |
 
 Las notas se guardan en `notes.md` dentro de la carpeta de datos de la app (`%APPDATA%\dev.dynamicisland.island` en Windows, `~/.local/share/dev.dynamicisland.island` en Linux). Mientras escribes, la isla no se cierra al sacar el cursor; se cierra al hacer clic en otra app, y en Windows le devuelve el teclado a la app donde estabas.
 

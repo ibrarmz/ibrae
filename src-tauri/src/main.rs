@@ -78,6 +78,17 @@ fn main() {
         })
     };
     let mut claimed = demo || serve();
+    // Restarted after an AppImage update: the old process may still be closing.
+    if std::env::var_os("ISLAND_RESTART").is_some() {
+        std::env::remove_var("ISLAND_RESTART");
+        for _ in 0..30 {
+            if claimed {
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(200));
+            claimed = serve();
+        }
+    }
     // Unless the owner is the pre-rename "Dynamic Island": IBRAE replaces it.
     if !claimed && migrate::stop_legacy_island() {
         std::thread::sleep(std::time::Duration::from_millis(1500));
@@ -88,8 +99,8 @@ fn main() {
     }
 
     let builder = tauri::Builder::default();
-    // In-app updates install by themselves only on Windows (installer / MSI).
-    #[cfg(windows)]
+    // In-app updates install by themselves on Windows (installer / MSI) and from a Linux AppImage.
+    #[cfg(any(windows, target_os = "linux"))]
     let builder = builder.plugin(tauri_plugin_updater::Builder::new().build());
     builder
         .plugin(tauri_plugin_notification::init())

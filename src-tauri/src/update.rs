@@ -3,9 +3,15 @@
 //! is a newer version.
 //!
 //! Installing is only automatic where it can be done safely: the Windows
-//! installer (.exe, NSIS) and the MSI, through tauri-plugin-updater, which
-//! checks the download against the public key in tauri.conf.json before running
-//! it. The portable .zip and the Linux packages just get a link to the release.
+//! installer (.exe, NSIS), the MSI and the Linux AppImage, through
+//! tauri-plugin-updater, which checks the download against the public key in
+//! tauri.conf.json before using it (the AppImage file is replaced in place and
+//! the app restarts). The portable .zip and the .deb / .rpm packages just get a
+//! link to the release (their package manager owns the files).
+//!
+//! `ISLAND_UPDATE_URL` points both the check and the install at another
+//! latest.json (to test an update end to end); signatures are still checked.
+//! `ISLAND_UPDATE_NOW=1` checks and installs right away at startup (same test).
 
 use serde::{Deserialize, Serialize};
 use std::{sync::Mutex, thread, time::Duration};
@@ -47,6 +53,13 @@ pub fn start(app: AppHandle) {
         s.can_install = can_install();
     }
     thread::spawn(move || {
+        if std::env::var_os("ISLAND_UPDATE_NOW").is_some() {
+            std::env::remove_var("ISLAND_UPDATE_NOW");
+            if check(&app).latest.is_some() {
+                let result = tauri::async_runtime::block_on(update_install(app.clone()));
+                eprintln!("update: {result:?}");
+            }
+        }
         // Let the island settle first; nobody needs this in the first seconds.
         thread::sleep(Duration::from_secs(30));
         loop {
@@ -72,13 +85,17 @@ fn newer(latest: &str, current: &str) -> bool {
 
 /// The newest published version, or None when that release has no latest.json
 /// (versions built without the signing key).
+fn latest_url() -> String {
+    std::env::var("ISLAND_UPDATE_URL").unwrap_or_else(|_| LATEST_JSON.to_string())
+}
+
 fn fetch_latest() -> Result<Option<String>, String> {
     let agent = ureq::Agent::config_builder()
         .timeout_global(Some(Duration::from_secs(20)))
         .http_status_as_error(false)
         .build()
         .new_agent();
-    let mut res = agent.get(LATEST_JSON).call().map_err(|_| "Sin conexión con GitHub".to_string())?;
+    let mut res = agent.get(latest_url()).call().map_err(|_| "Sin conexión con GitHub".to_string())?;
     match res.status().as_u16() {
         200..=299 => {}
         404 => return Ok(None),
@@ -107,7 +124,8 @@ fn check(app: &AppHandle) -> UpdateStatus {
     snap
 }
 
-/// Installed with the .exe (its uninstaller sits next to us) or the MSI.
+/// Installed with the .exe (its uninstaller sits next to us) or the MSI, or
+/// running as an AppImage (the AppImage runtime sets `APPIMAGE` to its file).
 fn can_install() -> bool {
     #[cfg(windows)]
     {
@@ -124,11 +142,15 @@ fn can_install() -> bool {
         });
         nsis || (bundle_type() == Some(BundleType::Msi) && in_program_files)
     }
-    #[cfg(not(windows))]
+    #[cfg(target_os = "linux")]
+    {
+        std::env::var_os("APPIMAGE").is_some_and(|p| std::path::Path::new(&p).is_file())
+    }
+    #[cfg(not(any(windows, target_os = "linux")))]
     false
 }
 
-#[cfg_attr(not(windows), allow(dead_code))]
+#[cfg_attr(not(any(windows, target_os = "linux")), allow(dead_code))]
 fn set(app: &AppHandle, f: impl FnOnce(&mut UpdateStatus)) {
     let state = app.state::<UpdateState>();
     let snap = {
@@ -149,14 +171,15 @@ pub async fn update_check(app: AppHandle) -> Result<UpdateStatus, String> {
     tauri::async_runtime::spawn_blocking(move || check(&app)).await.map_err(|e| e.to_string())
 }
 
-/// Download, verify and install; the app closes and the installer reopens it.
+/// Download, verify and install. Windows: the app closes and the installer
+/// reopens it. AppImage: the file is replaced and we restart into it.
 /// Where that isn't possible, open the release page instead.
 #[tauri::command]
 pub async fn update_install(app: AppHandle) -> Result<(), String> {
     if !can_install() {
         return crate::calendar::open_url(RELEASES.into());
     }
-    #[cfg(windows)]
+    #[cfg(any(windows, target_os = "linux"))]
     {
         use tauri_plugin_updater::UpdaterExt;
         set(&app, |s| {
@@ -164,8 +187,13 @@ pub async fn update_install(app: AppHandle) -> Result<(), String> {
             s.error = None;
         });
         let result = async {
-            let update = app
-                .updater()
+            let mut builder = app.updater_builder();
+            if let Ok(url) = std::env::var("ISLAND_UPDATE_URL") {
+                let url = url.parse().map_err(|_| "ISLAND_UPDATE_URL no es una URL".to_string())?;
+                builder = builder.endpoints(vec![url]).map_err(|e| e.to_string())?;
+            }
+            let update = builder
+                .build()
                 .map_err(|e| e.to_string())?
                 .check()
                 .await
@@ -177,7 +205,13 @@ pub async fn update_install(app: AppHandle) -> Result<(), String> {
                 .map_err(|_| "No se pudo descargar o verificar la actualización".to_string())
         }
         .await;
-        // Only reached when it failed: a successful install closes the app.
+        // Windows never gets here after a successful install (the installer closes us).
+        #[cfg(target_os = "linux")]
+        if result.is_ok() {
+            // The new instance waits for this one to let go of the Claude channel.
+            std::env::set_var("ISLAND_RESTART", "1");
+            app.restart();
+        }
         if let Err(e) = &result {
             let e = e.clone();
             set(&app, |s| {

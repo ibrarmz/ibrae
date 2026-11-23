@@ -43,12 +43,15 @@ Download the installer from the [latest release](https://github.com/ibrarmz/ibra
 | Windows 10/11 | `IBRAE_<version>_x64-setup.exe` | Recommended. Per-user install, no admin rights. |
 | Windows 10/11 | `IBRAE_<version>_x64-portable.zip` | If your network blocks `.exe`/`.msi` downloads. Unzip and open `ibrae.exe`; nothing is installed and no admin is needed. Instructions in `LEEME.txt`. |
 | Windows 10/11 | `IBRAE_<version>_x64.msi` | Machine-wide, in Program Files. Needs admin; handy for Intune / GPO deployment (`msiexec /i … /qn`). |
+| Linux (any distro) | `ibrae_<version>_amd64.AppImage` | Recommended on Linux, and the only one that updates itself. Nothing to install: `chmod +x` and open it, or add it to the menu with Gear Lever (ships with Bazzite). |
 | Debian / Ubuntu | `ibrae_<version>_amd64.deb` | `sudo apt install ./ibrae_<version>_amd64.deb` |
 | Fedora | `ibrae-<version>-1.x86_64.rpm` | `sudo dnf install ./ibrae-<version>-1.x86_64.rpm` |
 
-**Updates:** the island checks GitHub at startup and every 12 hours. With the `.exe` or `.msi` installer it updates itself from **Ajustes → Actualizaciones** (Settings → Updates), checking the download's signature before installing; with the portable `.zip` and on Linux it tells you and opens the download page. You can turn it off in Settings.
+**Updates:** the island checks GitHub at startup and every 12 hours. With the `.exe` or `.msi` installer or the `.AppImage` it updates itself from **Ajustes → Actualizaciones** (Settings → Updates), checking the download's signature before installing (the AppImage is replaced and the island restarts); with the portable `.zip`, the `.deb` or the `.rpm` it tells you and opens the download page. You can turn it off in Settings.
 
 Use only one of the Windows options. Both remove the Claude hooks and autostart when uninstalled (`ibrae uninstall-cleanup`). They aren't code-signed: if SmartScreen warns you, click "More info" → "Run anyway".
+
+With the AppImage, if you connected Claude Code, the island copies `island-hook` to `~/.local/share/dev.dynamicisland.island/` (the AppImage runs from a different path every time). Use a single format on Linux: if you switch from the `.rpm`/`.deb` to the AppImage, uninstall the package first (on Bazzite: `rpm-ostree uninstall ibrae`).
 
 On Linux, before uninstalling, run `ibrae hooks uninstall` if you connected Claude Code, and turn off "Iniciar con el sistema" (start with the system) in Settings: the package is removed as root and can't touch your user's configuration.
 
@@ -159,7 +162,7 @@ Claude Code hooks use a local channel (named pipe / Unix socket), never the netw
 | Settings, position, autostart | Tested in the installed app | Builds |
 | iCal calendar: agenda, notices, join, connect by copying the link | Tested with Google (real calendar) | Builds |
 | Auto-update | Tested from 0.1.13 to 0.1.14 with the `.exe` installer | Notifies and opens the download |
-| Installer / uninstaller | Per-user NSIS, tested install → use → uninstall | `.deb` / `.rpm` built in Docker, not installed on a real desktop |
+| Installer / uninstaller | Per-user NSIS, tested install → use → uninstall | `.deb` / `.rpm` built in Docker, not installed on a real desktop; AppImage updates itself (tested in Docker from 0.4.90 to 0.4.91) |
 
 Notes are saved in `notes.md` inside the app's data folder (`%APPDATA%\dev.dynamicisland.island` on Windows, `~/.local/share/dev.dynamicisland.island` on Linux). While you type, the island doesn't close when the cursor leaves; it closes when you click another app, and on Windows it gives the keyboard back to the app you were in.
 

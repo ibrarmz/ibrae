@@ -44,10 +44,40 @@ fn settings_path() -> Result<PathBuf, String> {
 /// fall back to the app binary's `hook` mode.
 fn command() -> Result<String, String> {
     let exe = std::env::current_exe().map_err(|e| e.to_string())?;
-    let fast = exe.with_file_name(if cfg!(windows) { "island-hook.exe" } else { "island-hook" });
+    let mut fast = exe.with_file_name(if cfg!(windows) { "island-hook.exe" } else { "island-hook" });
+    // An AppImage runs from a new mount point every time: hooks get a copy that stays put.
+    if std::env::var_os("APPIMAGE").is_some() && fast.exists() {
+        if let Some(copy) = stable_copy(&fast) {
+            fast = copy;
+        }
+    }
     // Forward slashes: Claude Code runs hooks through a POSIX shell on Windows too.
     let quote = |p: &std::path::Path| format!("\"{}\"", p.to_string_lossy().replace('\\', "/"));
     Ok(if fast.exists() { quote(&fast) } else { format!("{} hook", quote(&exe)) })
+}
+
+/// `island-hook` copied to ~/.local/share/dev.dynamicisland.island/ (only
+/// rewritten when it changed, through a rename so a running hook is unharmed).
+fn stable_copy(src: &std::path::Path) -> Option<PathBuf> {
+    let data = std::env::var_os("XDG_DATA_HOME")
+        .map(PathBuf::from)
+        .filter(|p| p.is_absolute())
+        .or_else(|| std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".local/share")))?;
+    let dir = data.join("dev.dynamicisland.island");
+    let dest = dir.join("island-hook");
+    let bytes = std::fs::read(src).ok()?;
+    if std::fs::read(&dest).ok().as_deref() != Some(bytes.as_slice()) {
+        std::fs::create_dir_all(&dir).ok()?;
+        let tmp = dir.join("island-hook.new");
+        std::fs::write(&tmp, &bytes).ok()?;
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(&tmp, std::fs::Permissions::from_mode(0o755)).ok()?;
+        }
+        std::fs::rename(&tmp, &dest).ok()?;
+    }
+    Some(dest)
 }
 
 fn is_ours(hook: &Value) -> bool {
@@ -147,6 +177,10 @@ fn missing_events(settings: &Value) -> bool {
 /// pointing at another existing copy is left alone.
 pub fn repair() {
     let Ok((_, settings)) = load() else { return };
+    // AppImage: refresh the stable copy of island-hook to this version's.
+    if std::env::var_os("APPIMAGE").is_some() && installed().unwrap_or(false) {
+        let _ = command();
+    }
     if needs_repair(&settings, |p| std::path::Path::new(p).exists()) {
         let _ = install();
     }

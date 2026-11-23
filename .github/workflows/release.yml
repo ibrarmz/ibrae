@@ -63,10 +63,10 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: |
-          if [ "$RUNNER_OS" = "Windows" ] && [ -n "$TAURI_SIGNING_PRIVATE_KEY" ]; then
+          if [ -n "$TAURI_SIGNING_PRIVATE_KEY" ]; then
             npx tauri build --config '{"bundle":{"createUpdaterArtifacts":true}}'
           else
-            [ "$RUNNER_OS" = "Windows" ] && echo "::warning::Sin TAURI_SIGNING_PRIVATE_KEY: esta versión no tendrá actualización automática"
+            echo "::warning::Sin TAURI_SIGNING_PRIVATE_KEY: esta versión no tendrá actualización automática"
             npx tauri build
           fi
 
@@ -81,11 +81,10 @@ jobs:
           if [ "$RUNNER_OS" = "Windows" ]; then
             cp "$B/nsis/IBRAE_${VERSION}_x64-setup.exe" "out/IBRAE_${VERSION}_x64-setup.exe"
             cp "$B"/msi/*.msi "out/IBRAE_${VERSION}_x64.msi"
-            # latest.json: what the in-app updater reads (only when signed).
-            SIG="$B/nsis/IBRAE_${VERSION}_x64-setup.exe.sig"
-            if [ -f "$SIG" ]; then
-              node .github/latest-json.mjs "$VERSION" "$SIG" "$(ls "$B"/msi/*.msi.sig)" > out/latest.json
-            fi
+            # Signatures for latest.json (the `latest` job), only when signed.
+            mkdir -p sigs
+            cp "$B/nsis/IBRAE_${VERSION}_x64-setup.exe.sig" sigs/nsis.sig 2>/dev/null || true
+            cp "$B"/msi/*.msi.sig sigs/msi.sig 2>/dev/null || true
             # Portable .zip: for networks that block .exe / .msi downloads. No install, no admin.
             P="out/portable/IBRAE"
             mkdir -p "$P"
@@ -96,5 +95,37 @@ jobs:
           else
             cp "$B/deb/IBRAE_${VERSION}_amd64.deb" "out/ibrae_${VERSION}_amd64.deb"
             cp "$B/rpm/IBRAE-${VERSION}-1.x86_64.rpm" "out/ibrae-${VERSION}-1.x86_64.rpm"
+            cp "$B/appimage/IBRAE_${VERSION}_amd64.AppImage" "out/ibrae_${VERSION}_amd64.AppImage"
+            mkdir -p sigs
+            cp "$B/appimage/IBRAE_${VERSION}_amd64.AppImage.sig" sigs/appimage.sig 2>/dev/null || true
           fi
           gh release upload "$GITHUB_REF_NAME" out/* --clobber
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sigs-${{ runner.os }}
+          path: sigs/
+          if-no-files-found: ignore
+
+  # latest.json: what the in-app updater reads, with both systems' signatures.
+  latest:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: sigs-*
+          path: sigs
+          merge-multiple: true
+      - name: Upload latest.json
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          if [ -z "$(ls sigs 2>/dev/null)" ]; then
+            echo "::warning::Sin firmas: esta versión no tendrá latest.json"; exit 0
+          fi
+          node .github/latest-json.mjs "$VERSION" sigs > latest.json
+          cat latest.json
+          gh release upload "$GITHUB_REF_NAME" latest.json --clobber

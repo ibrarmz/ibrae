@@ -36,7 +36,7 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["nsis", "msi", "deb", "rpm"],
+    "targets": ["nsis", "msi", "deb", "rpm", "appimage"],
     "publisher": "Ibra",
     "category": "Utility",
     "shortDescription": "A different layer of your desktop.",

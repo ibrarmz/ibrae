@@ -31,8 +31,11 @@ chrono-tz = "0.10"
 # Spot a copied iCal link (only while the connect screen is open).
 arboard = { version = "3", default-features = false }
 
-[target.'cfg(windows)'.dependencies]
+# In-app updates: Windows installer / MSI, and the Linux AppImage.
+[target.'cfg(any(windows, target_os = "linux"))'.dependencies]
 tauri-plugin-updater = "2"
+
+[target.'cfg(windows)'.dependencies]
 # The COM `implement`/`interface` macros expand to `windows_core::…` paths.
 windows-core = "0.62"
 windows = { version = "0.62", features = [
