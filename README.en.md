@@ -22,7 +22,7 @@ A dynamic island for **Windows and Linux** that lives at the top of your screen:
 
 - **Music** from any player (Spotify, YouTube in the browser, Apple Music, VLC…): cover art, controls and a progress bar. Optional HD covers.
 - **Claude Code**, live: which phase it's in (reading, editing, testing), the diff it's writing, its subagents, and it peeks out when it's done. When it **asks for permission**, you answer from the island: **Permitir** (allow), **Siempre** (always) or **Denegar** (deny), without going back to the terminal.
-- **Volume and brightness**, Mac style: when you change the volume, mute, change the brightness or plug in headphones, the pill shows it. Under Sistema → *Sonido y pantalla* (System → Sound & display) there are volume and brightness sliders, and you switch the audio output with one click (Windows).
+- **Volume and brightness**, Mac style: when you change the volume, mute, change the brightness or plug in headphones, the pill shows it. Under Sistema → *Sonido y pantalla* (System → Sound & display) there are volume and brightness sliders, and you switch the audio output with one click. On Linux it works with PipeWire or PulseAudio (`pactl`), and brightness only with a laptop screen.
 - **Calendar** from Google, Outlook or iCloud (iCal link, no sign-in): today's agenda, "Daily in 12 min" in the pill, a heads-up one minute before and a **Unirse** (join) button for Meet, Zoom or Teams.
 - **Focus** (pomodoro), **quick notes** and **system** (CPU, memory, disk, battery).
 - **Multiple monitors:** on the screen you choose, or following the cursor from one monitor to another.
@@ -155,7 +155,7 @@ Claude Code hooks use a local channel (named pipe / Unix socket), never the netw
 | Claude: phases, diff, permissions, done | Tested with simulated events | Channel and `island-hook` tested in a container |
 | Notes: quick note with autosave, dock **+** button | Tested (render) | Builds |
 | System: CPU with history, memory, disk, battery, uptime, island RAM | Tested | Builds |
-| Volume, mute, audio output and brightness (notices and controls) | Tested | Not yet |
+| Volume, mute, audio output and brightness (notices and controls) | Tested | Volume, mute and output tested in a container (PulseAudio); brightness untested |
 | Settings, position, autostart | Tested in the installed app | Builds |
 | iCal calendar: agenda, notices, join, connect by copying the link | Tested with Google (real calendar) | Builds |
 | Auto-update | Tested from 0.1.13 to 0.1.14 with the `.exe` installer | Notifies and opens the download |
@@ -197,7 +197,7 @@ src-tauri/src/
   focus.rs                 timer
   claude/                  Claude Code sessions, local channel, hook installer, permissions
   media/                   music: windows.rs (SMTC), linux.rs (MPRIS)
-  audio/                   volume, audio output and brightness (Windows)
+  audio/                   volume, audio output and brightness: win.rs, linux.rs (pactl, backlight)
   calendar.rs              iCal feeds and recurring events
   notes.rs                 save / load the note
   settings.rs              settings, autostart

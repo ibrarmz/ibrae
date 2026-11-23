@@ -2,15 +2,19 @@
 //! they change (the "OSD") and the controls in Sistema → Sonido y pantalla.
 //!
 //! Event-driven like the rest of the core: Windows calls us when the volume,
-//! the default output or the brightness change; nothing is polled. Each change
-//! is emitted as `audio` with its `cause` ("volume" | "mute" | "output" |
-//! "brightness"), and the UI decides whether to show it. Other platforms report
-//! `available: false` for now.
+//! the default output or the brightness change; on Linux `pactl subscribe`
+//! does (see `linux.rs` for the exceptions). Each change is emitted as `audio`
+//! with its `cause` ("volume" | "mute" | "output" | "brightness"), and the UI
+//! decides whether to show it. Other platforms report `available: false`.
 
 use serde::Serialize;
 use std::sync::Mutex;
 use tauri::{AppHandle, Emitter, Manager, State};
 
+#[cfg(target_os = "linux")]
+mod linux;
+#[cfg(any(target_os = "linux", test))]
+mod parse;
 #[cfg(windows)]
 mod win;
 
@@ -48,7 +52,7 @@ pub struct AudioState {
 }
 
 /// Apply a change and tell the UI, only if something really changed.
-#[cfg_attr(not(windows), allow(dead_code))]
+#[cfg_attr(not(any(windows, target_os = "linux")), allow(dead_code))]
 fn update(app: &AppHandle, cause: Option<&'static str>, f: impl FnOnce(&mut AudioStatus)) {
     let state = app.state::<AudioState>();
     let snap = {
@@ -66,7 +70,9 @@ fn update(app: &AppHandle, cause: Option<&'static str>, f: impl FnOnce(&mut Audi
 pub fn start(app: AppHandle) {
     #[cfg(windows)]
     win::start(app);
-    #[cfg(not(windows))]
+    #[cfg(target_os = "linux")]
+    linux::start(app);
+    #[cfg(not(any(windows, target_os = "linux")))]
     let _ = app;
 }
 
@@ -88,7 +94,17 @@ pub fn audio_set(what: String, value: u32) -> Result<(), String> {
         };
         win::send(cmd)
     }
-    #[cfg(not(windows))]
+    #[cfg(target_os = "linux")]
+    {
+        let cmd = match what.as_str() {
+            "volume" => linux::Cmd::Volume(value.min(100)),
+            "mute" => linux::Cmd::Mute(value != 0),
+            "brightness" => linux::Cmd::Brightness(value.min(100)),
+            _ => return Err("Ajuste desconocido".into()),
+        };
+        linux::send(cmd)
+    }
+    #[cfg(not(any(windows, target_os = "linux")))]
     {
         let _ = (what, value);
         Err("No disponible en este sistema".into())
@@ -102,7 +118,11 @@ pub fn audio_output(id: String) -> Result<(), String> {
     {
         win::send(win::Cmd::Output(id))
     }
-    #[cfg(not(windows))]
+    #[cfg(target_os = "linux")]
+    {
+        linux::send(linux::Cmd::Output(id))
+    }
+    #[cfg(not(any(windows, target_os = "linux")))]
     {
         let _ = id;
         Err("No disponible en este sistema".into())

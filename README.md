@@ -20,7 +20,7 @@ Una isla dinámica para **Windows y Linux** que vive arriba de tu pantalla: lo q
 
 - **Música** de cualquier reproductor (Spotify, YouTube en el navegador, Apple Music, VLC…): carátula, controles y barra de progreso. Opcional: carátulas en HD.
 - **Claude Code** en vivo: qué fase lleva (leer, editar, probar), el diff que está escribiendo, sus subagentes, y se asoma cuando termina. Cuando **pide permiso**, contestas desde la isla: **Permitir**, **Siempre** o **Denegar**, sin volver a la terminal.
-- **Volumen y brillo** estilo Mac: al subir o bajar el volumen, silenciar, cambiar el brillo o conectar audífonos, la píldora lo muestra en lugar del recuadro de Windows. En Sistema → *Sonido y pantalla* hay barras de volumen y brillo y cambias la salida de audio con un clic (Windows).
+- **Volumen y brillo** estilo Mac: al subir o bajar el volumen, silenciar, cambiar el brillo o conectar audífonos, la píldora lo muestra. En Sistema → *Sonido y pantalla* hay barras de volumen y brillo y cambias la salida de audio con un clic. En Linux funciona con PipeWire o PulseAudio (`pactl`), y el brillo solo con la pantalla de una laptop.
 - **Calendario** de Google, Outlook o iCloud (link iCal, sin iniciar sesión): tu agenda del día, «Daily en 12 min» en la píldora, aviso un minuto antes y botón **Unirse** a Meet, Zoom o Teams.
 - **Focus** (pomodoro), **notas rápidas** y **sistema** (CPU, memoria, disco, batería).
 - **Varios monitores:** en la pantalla que elijas, o siguiendo al cursor de un monitor a otro.
@@ -153,7 +153,7 @@ Los hooks de Claude Code usan un canal local (named pipe / socket Unix), nunca l
 | Claude: fases, diff, permisos, terminó | Probado con eventos simulados | Canal y `island-hook` probados en contenedor |
 | Notas: nota rápida con guardado automático, botón **+** del dock | Probado (render) | Compila |
 | Sistema: CPU con historial, memoria, disco, batería, tiempo encendido, RAM de la isla | Probado | Compila |
-| Volumen, silencio, salida de audio y brillo (avisos y controles) | Probado | Aún no |
+| Volumen, silencio, salida de audio y brillo (avisos y controles) | Probado | Volumen, silencio y salida probados en contenedor (PulseAudio); brillo sin probar |
 | Ajustes, posición, autoarranque | Probado en la app instalada | Compila |
 | Calendario iCal: agenda, avisos, Unirse, conectar copiando el link | Probado con Google (calendario real) | Compila |
 | Actualización automática | Probada de 0.1.13 a 0.1.14 con el instalador `.exe` | Avisa y abre la descarga |
