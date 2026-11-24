@@ -437,9 +437,49 @@ pub(crate) fn apply(map: &mut HashMap<String, Session>, ev: &Value, now: u64) ->
             s.ended_at = Some(now);
             s.message = None;
         }
+        // The turn died on an API error (no Stop follows): stop the clock and say why.
+        "StopFailure" => {
+            let kind = ev["error"].as_str().unwrap_or("unknown");
+            s.status = "error";
+            s.label = error_label(kind);
+            s.ended_at = Some(now);
+            s.message = Some(error_message(ev, kind));
+            // Subagents die with the turn.
+            for a in s.agents.iter_mut().filter(|a| a.status != "done") {
+                a.status = "done";
+                a.label = "DETENIDO";
+                a.ended_at = Some(now);
+                a.message = None;
+            }
+            peek = true;
+        }
         _ => {}
     }
     Applied { changed: true, peek }
+}
+
+fn error_label(kind: &str) -> &'static str {
+    match kind {
+        "rate_limit" => "LÍMITE",
+        "authentication_failed" | "oauth_org_not_allowed" | "cloud_credential_error" => "SIN SESIÓN",
+        "billing_error" | "account_on_hold" => "CUENTA",
+        "server_error" => "SIN SERVICIO",
+        _ => "ERROR",
+    }
+}
+
+/// Claude Code's own error text ("You've hit your 5-hour limit · resets 1pm…")
+/// when it sends one; a Spanish fallback otherwise.
+fn error_message(ev: &Value, kind: &str) -> String {
+    let text = |k: &str| ev[k].as_str().map(str::trim).filter(|t| !t.is_empty()).map(|t| first_line(t, MAX_LINE_LEN));
+    text("last_assistant_message").or_else(|| text("error_details")).unwrap_or_else(|| {
+        match kind {
+            "rate_limit" => "Llegaste al límite de uso de Claude.",
+            "server_error" => "La API de Claude no responde.",
+            _ => "El turno terminó por un error de la API.",
+        }
+        .to_string()
+    })
 }
 
 /// Only permission prompts matter; idle_prompt fires long after Stop.
@@ -594,6 +634,28 @@ mod tests {
             json!({"hook_event_name":"PostToolUse","agent_id":"a1","tool_name":"Bash"}),
         ]);
         assert_eq!(map["s1"].agents[0].status, "working");
+    }
+
+    #[test]
+    fn stop_failure_stops_the_clock() {
+        let mut map = HashMap::new();
+        ap(&mut map, json!({"hook_event_name":"UserPromptSubmit","prompt":"hola"}), 1, 1_000);
+        ap(&mut map, json!({"hook_event_name":"SubagentStart","agent_id":"a1","agent_type":"Explore"}), 2, 1_000);
+        let r = ap(
+            &mut map,
+            json!({"hook_event_name":"StopFailure","error":"rate_limit",
+                   "last_assistant_message":"You've hit your 5-hour limit · resets 1pm"}),
+            3,
+            5_000,
+        );
+        assert!(r.peek);
+        let s = map.values().next().unwrap();
+        assert_eq!((s.status, s.label, s.ended_at), ("error", "LÍMITE", Some(5_000)));
+        assert_eq!(s.message.as_deref(), Some("You've hit your 5-hour limit · resets 1pm"));
+        assert!(s.agents.iter().all(|a| a.status == "done"));
+        // A new prompt after the reset starts over.
+        ap(&mut map, json!({"hook_event_name":"UserPromptSubmit","prompt":"sigue"}), 4, 9_000);
+        assert_eq!(map.values().next().unwrap().status, "working");
     }
 
     #[test]

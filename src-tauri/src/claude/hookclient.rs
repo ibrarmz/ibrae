@@ -129,6 +129,9 @@ pub fn slim(ev: &Value) -> Value {
         "prompt": ev.get("prompt").map(cut),
         "message": ev.get("message").map(cut),
         "notification_type": ev.get("notification_type"),
+        "error": ev.get("error"),
+        "error_details": ev.get("error_details").map(cut),
+        "last_assistant_message": ev.get("last_assistant_message").map(cut),
         "tool_input": input,
     })
 }

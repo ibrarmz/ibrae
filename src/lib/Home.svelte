@@ -27,6 +27,7 @@
     if (!s) return claude.hooks === false ? 'Sin conectar' : 'Sin sesión activa';
     if (s.status === 'waiting') return 'Pide permiso';
     const what = s.detail ? ` · ${s.detail}` : '';
+    if (s.status === 'error') return s.label === 'LÍMITE' ? 'Llegó al límite de uso' : 'Se detuvo por un error';
     if (s.status === 'done') return `Terminó en ${fmt.short(claudeElapsed())}`;
     return `${s.label.charAt(0)}${s.label.slice(1).toLowerCase()}${what}`;
   });

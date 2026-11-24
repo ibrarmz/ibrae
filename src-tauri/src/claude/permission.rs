@@ -163,7 +163,7 @@ pub fn on_event(app: &AppHandle, ev: &Value) {
     match name {
         "SessionEnd" => list.retain(|p| !mine(p)),
         // The main thread moved on; subagents may still be waiting.
-        "Stop" => list.retain(|p| !(mine(p) && p.agent_id.is_none())),
+        "Stop" | "StopFailure" => list.retain(|p| !(mine(p) && p.agent_id.is_none())),
         "UserPromptSubmit" if !super::is_injected(ev["prompt"].as_str().unwrap_or("")) => {
             list.retain(|p| !(mine(p) && p.agent_id.is_none()))
         }

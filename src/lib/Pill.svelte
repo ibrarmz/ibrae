@@ -13,6 +13,8 @@
   const waitAgent = $derived(wait.agent);
   const waitTool = $derived(wait.tool);
   const nAgents = $derived(activeAgents().length);
+  // The turn died on an API error (usage limit…): the pill says so instead of LISTO.
+  const failed = $derived(claude.session?.status === 'error');
 
   const cal = $derived(calPill());
 
@@ -36,7 +38,8 @@
   {:else if kind === 'claude-wait'}
     <span class="row"><span class="pulse"></span><span class="tag orange">PERMISO</span></span>
   {:else if kind === 'claude-done'}
-    <span class="row clay">{@html icon('check', 15, 2.2)}<span class="tag">LISTO</span></span>
+    {#if failed}<span class="row"><span class="tag orange">{claude.session.label}</span></span>
+    {:else}<span class="row clay">{@html icon('check', 15, 2.2)}<span class="tag">LISTO</span></span>{/if}
   {:else if kind === 'cal-next' && cal}
     <span class="row violet">{@html icon('cal', 15, 2)}<span class="num fg">{mins(cal.ev.start - clock.now)}m</span></span>
   {:else if kind === 'cal-now' && cal}
@@ -115,7 +118,10 @@
       <i class="cbar" style="width:{Math.min(100, ((clock.now - cal.ev.start) / (cal.ev.end - cal.ev.start)) * 100)}%"></i>
     {/if}
   {:else if acts[0] === 'claude-done'}
-    {#if nAgents}
+    {#if failed}
+      <span class="row pad"><span class="tag orange">{claude.session.label === 'LÍMITE' ? 'LÍMITE DE USO' : claude.session.label}</span></span>
+      <span class="num big">{fmt.short(claudeElapsed())}</span>
+    {:else if nAgents}
       <span class="row clay pad">{@html icon('check', 16, 2.2)}<span class="tag">LISTO</span></span>
       <span class="row clay"><span class="spin sm">{@html icon('spark', 12, 2)}</span><span class="tag">{nAgents} {nAgents === 1 ? 'AGENTE SIGUE' : 'AGENTES SIGUEN'}</span></span>
     {:else}

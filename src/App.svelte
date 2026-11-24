@@ -68,11 +68,11 @@
   // Claude (or one of its agents) waits for a permission answer.
   const asking = $derived(cStatus === 'waiting' || !!waitingAgent() || claude.perms.length > 0);
 
-  // "Claude terminó" stays in the pill for 10 s after Stop.
+  // "Claude terminó" (or why it stopped) stays in the pill for 10 s after Stop / StopFailure.
   let doneFresh = $state(false);
   $effect(() => {
     const s = claude.session;
-    const left = s?.status === 'done' && s.ended_at ? 10_000 - (Date.now() - s.ended_at) : 0;
+    const left = (s?.status === 'done' || s?.status === 'error') && s.ended_at ? 10_000 - (Date.now() - s.ended_at) : 0;
     doneFresh = left > 0;
     if (left > 0) {
       const t = setTimeout(() => (doneFresh = false), left);

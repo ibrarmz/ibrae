@@ -23,7 +23,7 @@
   // 0 empty · 1 full · 'cur' in progress
   const bars = $derived(
     s
-      ? PHASES.map((_, i) => (s.status === 'done' ? 1 : i === s.phase ? 'cur' : s.reached[i] ? 1 : 0))
+      ? PHASES.map((_, i) => (s.status === 'done' ? 1 : s.status !== 'error' && i === s.phase ? 'cur' : s.reached[i] ? 1 : 0))
       : [],
   );
 
@@ -119,6 +119,11 @@
 
       {#if perm}
         {@render permCard()}
+      {:else if s.status === 'error'}
+        <div class="card wait">
+          <span class="pulse"></span>
+          <span><b>{s.label === 'LÍMITE' ? 'Llegaste al límite de uso' : 'Claude se detuvo'}</b><br /><span class="dim">{s.message}</span></span>
+        </div>
       {:else if s.status === 'waiting'}
         <div class="card wait">
           <span class="pulse"></span>
@@ -155,7 +160,7 @@
         </div>
       {:else}
         <div class="card action">
-          <span class="label">{s.status === 'done' ? 'ÚLTIMA ACCIÓN' : 'AHORA'}</span>
+          <span class="label">{s.status === 'done' || s.status === 'error' ? 'ÚLTIMA ACCIÓN' : 'AHORA'}</span>
           <code>{s.detail || (s.status === 'working' ? 'Pensando…' : '—')}</code>
         </div>
       {/if}
@@ -210,6 +215,7 @@
   .bars.working i { animation: breathe 1.6s ease-in-out infinite; }
   .bars.working i + i { animation-delay: -0.8s; }
   .bars.waiting i { background: #ffc49a; box-shadow: 0 0 30px rgba(255, 140, 60, 0.9); animation: breathe 0.9s ease-in-out infinite; }
+  .bars.error i { background: #ffc49a; opacity: 0.7; box-shadow: none; }
   .bars.done i, .bars.idle i { opacity: 0.55; box-shadow: none; }
   @keyframes breathe {
     0%, 100% { transform: scaleY(1); opacity: 1; }

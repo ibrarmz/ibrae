@@ -4,13 +4,15 @@
 use serde_json::{json, Value};
 use std::{fs, path::PathBuf};
 
-const EVENTS: [(&str, bool); 10] = [
+const EVENTS: [(&str, bool); 11] = [
     // (event, needs a tool matcher)
     ("PreToolUse", true),
     ("PostToolUse", true),
     ("UserPromptSubmit", false),
     ("Notification", false),
     ("Stop", false),
+    // Instead of Stop when the turn dies on an API error (usage limit, auth…).
+    ("StopFailure", false),
     ("SessionStart", false),
     ("SessionEnd", false),
     ("SubagentStart", false),
