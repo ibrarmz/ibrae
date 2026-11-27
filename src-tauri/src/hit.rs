@@ -31,10 +31,12 @@ use std::{
     time::{Duration, Instant},
 };
 use crate::monitors::{self, Mon};
-use tauri::{Emitter, Manager, PhysicalPosition, WebviewWindow};
+use tauri::{Emitter, Manager, PhysicalPosition, PhysicalSize, WebviewWindow};
 
 /// Must match WIN_W in src/App.svelte.
 pub const WIN_W: f64 = 760.0;
+/// Window height in logical px (tauri.conf.json).
+const WIN_H: f64 = 330.0;
 /// Gap between the screen edge and the island when it sits left or right.
 const SIDE_MARGIN: i32 = 12;
 
@@ -131,6 +133,10 @@ pub fn place_window(win: &WebviewWindow) {
         _ => mx + (mw - width) / 2,
     };
     let _ = win.set_position(PhysicalPosition::new(x, my));
+    // Size it for *this* monitor's scale: the window is created at the scale of
+    // whichever monitor Windows picked first, and moving it to one with another
+    // DPI doesn't always rescale it, which left the island cut off on the right.
+    let _ = win.set_size(PhysicalSize::new(width as u32, (WIN_H * sf).round() as u32));
     *state.origin.lock().unwrap() = (x as f64, my as f64, sf);
     *state.current.lock().unwrap() = m.key;
     *state.mode.lock().unwrap() = settings.monitor;

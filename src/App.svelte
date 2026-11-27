@@ -270,8 +270,19 @@
     listen('pointer-entered', () => (outside = false));
   }
 
+  // The UI is laid out for a WIN_W-wide viewport. Windows "Text size" above 100 %
+  // (and odd DPI setups) make WebView2 zoom the page, so fewer CSS px fit and the
+  // island gets cut off. Zoom back to fit; hit rects stay in WIN_W units, which is
+  // what the core expects since the window is WIN_W logical px wide.
+  function fitZoom() {
+    const z = window.innerWidth / WIN_W;
+    document.documentElement.style.zoom = Math.abs(z - 1) > 0.01 ? String(z) : '';
+  }
+
   onMount(() => {
     init();
+    fitZoom();
+    window.addEventListener('resize', fitZoom);
     invoke('hover_native').then((native) => !native && domHover());
     invoke('covered').then((v) => (covered = v));
     window.addEventListener('blur', onWindowBlur);
@@ -284,6 +295,7 @@
     ];
     return () => {
       window.removeEventListener('blur', onWindowBlur);
+      window.removeEventListener('resize', fitZoom);
       unlisten.forEach((p) => p.then((off) => off()));
     };
   });
